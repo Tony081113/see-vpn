@@ -18,6 +18,9 @@ UNAUTHORIZED_INTERFACE_PATTERNS = (
 )
 UNAUTHORIZED_PROXY_PORTS = {7890, 1080, 1081, 10808}
 CHECK_INTERVAL_MS = 5000
+INITIAL_CHECK_DELAY_MS = 500
+NETSH_COMMAND_TIMEOUT_SECONDS = 10
+PROCESS_TERMINATE_TIMEOUT_SECONDS = 3
 
 
 class PolicyWatchdogApp:
@@ -46,7 +49,7 @@ class PolicyWatchdogApp:
         self._schedule_next_check(initial=True)
 
     def _schedule_next_check(self, initial: bool = False) -> None:
-        delay = 500 if initial else CHECK_INTERVAL_MS
+        delay = INITIAL_CHECK_DELAY_MS if initial else CHECK_INTERVAL_MS
         self.root.after(delay, self.run_policy_checks)
 
     def run_policy_checks(self) -> None:
@@ -100,7 +103,7 @@ class PolicyWatchdogApp:
                     capture_output=True,
                     text=True,
                     shell=False,
-                    timeout=10,
+                    timeout=NETSH_COMMAND_TIMEOUT_SECONDS,
                 )
             except subprocess.TimeoutExpired:
                 logging.error("Timed out while disabling interface %s", interface_name)
@@ -143,7 +146,7 @@ class PolicyWatchdogApp:
                 proc_name = proc.name()
                 proc.terminate()
                 try:
-                    proc.wait(timeout=3)
+                    proc.wait(timeout=PROCESS_TERMINATE_TIMEOUT_SECONDS)
                 except psutil.TimeoutExpired:
                     proc.kill()
                 action = f"Terminated process on unauthorized proxy port: {proc_name} (PID {pid})"
