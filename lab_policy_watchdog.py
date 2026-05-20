@@ -4,6 +4,7 @@ import os
 import subprocess
 import sys
 import tkinter as tk
+from pathlib import Path
 from tkinter import messagebox
 
 import psutil
@@ -132,7 +133,8 @@ class PolicyWatchdogApp:
                     connection.status == psutil.CONN_LISTEN
                     and connection.laddr
                     and connection.laddr.port in UNAUTHORIZED_PROXY_PORTS
-                    and connection.pid
+                    and isinstance(connection.pid, int)
+                    and connection.pid > 0
                 ):
                     violating_pids.add(connection.pid)
         except Exception as exc:  # noqa: BLE001 - permission/provider errors
@@ -159,21 +161,22 @@ class PolicyWatchdogApp:
                 logging.exception("Failed terminating PID %s: %s", pid, exc)
 
         if any_terminated:
+            terminated_count = len(actions)
             messagebox.showwarning(
                 "Policy Enforcement",
-                "VPN/Proxy usage detected. Process terminated for policy compliance.",
+                f"VPN/Proxy usage detected. Terminated {terminated_count} process(es) for policy compliance.",
             )
         return actions
 
 
 def configure_logging() -> None:
-    program_data = os.environ.get("ProgramData", r"C:\ProgramData")
-    log_dir = os.path.join(program_data, "LabMonitor")
-    os.makedirs(log_dir, exist_ok=True)
+    program_data = Path(os.environ.get("ProgramData", "C:/ProgramData"))
+    log_dir = program_data / "LabMonitor"
+    log_dir.mkdir(parents=True, exist_ok=True)
 
-    log_path = os.path.join(log_dir, "enforcement.log")
+    log_path = log_dir / "enforcement.log"
     logging.basicConfig(
-        filename=log_path,
+        filename=str(log_path),
         level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(message)s",
     )
