@@ -94,7 +94,17 @@ class PolicyWatchdogApp:
                 interface_name,
                 "admin=disable",
             ]
-            result = subprocess.run(command, capture_output=True, text=True, shell=False)
+            try:
+                result = subprocess.run(
+                    command,
+                    capture_output=True,
+                    text=True,
+                    shell=False,
+                    timeout=10,
+                )
+            except subprocess.TimeoutExpired:
+                logging.error("Timed out while disabling interface %s", interface_name)
+                continue
             if result.returncode == 0:
                 self.disabled_interfaces.add(interface_name)
                 action = f"Disabled unauthorized interface: {interface_name}"
@@ -126,6 +136,7 @@ class PolicyWatchdogApp:
             logging.exception("Failed to enumerate listening sockets: %s", exc)
             return actions
 
+        any_terminated = False
         for pid in violating_pids:
             try:
                 proc = psutil.Process(pid)
@@ -138,14 +149,17 @@ class PolicyWatchdogApp:
                 action = f"Terminated process on unauthorized proxy port: {proc_name} (PID {pid})"
                 actions.append(action)
                 logging.warning(action)
-                messagebox.showwarning(
-                    "Policy Enforcement",
-                    "VPN/Proxy usage detected. Process terminated for policy compliance.",
-                )
+                any_terminated = True
             except psutil.NoSuchProcess:
                 continue
             except Exception as exc:  # noqa: BLE001 - watchdog must continue
                 logging.exception("Failed terminating PID %s: %s", pid, exc)
+
+        if any_terminated:
+            messagebox.showwarning(
+                "Policy Enforcement",
+                "VPN/Proxy usage detected. Process terminated for policy compliance.",
+            )
         return actions
 
 
@@ -188,8 +202,7 @@ def main() -> int:
     logging.info("Classroom Network Policy Watchdog started.")
 
     root = tk.Tk()
-    app = PolicyWatchdogApp(root)
-    _ = app
+    PolicyWatchdogApp(root)
     root.mainloop()
     return 0
 
