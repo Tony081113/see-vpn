@@ -141,7 +141,6 @@ class PolicyWatchdogApp:
             logging.exception("Failed to enumerate listening sockets: %s", exc)
             return actions
 
-        any_terminated = False
         for pid in violating_pids:
             try:
                 proc = psutil.Process(pid)
@@ -154,17 +153,15 @@ class PolicyWatchdogApp:
                 action = f"Terminated process on unauthorized proxy port: {proc_name} (PID {pid})"
                 actions.append(action)
                 logging.warning(action)
-                any_terminated = True
             except psutil.NoSuchProcess:
                 continue
             except Exception as exc:  # noqa: BLE001 - watchdog must continue
                 logging.exception("Failed terminating PID %s: %s", pid, exc)
 
-        if any_terminated:
-            terminated_count = len(actions)
+        if actions:
             messagebox.showwarning(
                 "Policy Enforcement",
-                f"VPN/Proxy usage detected. Terminated {terminated_count} process(es) for policy compliance.",
+                f"VPN/Proxy usage detected. Terminated {len(actions)} process(es) for policy compliance.",
             )
         return actions
 
